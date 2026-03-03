@@ -100,24 +100,34 @@ def run_download(url, cfg, download_id):
             text=True, bufsize=1
         )
         last_line = "Running..."
+        last_error_line = ""  # track ERROR lines separately, ignoring WARNING lines
         for line in proc.stdout:
             line = line.strip()
             if line:
                 last_line = line
-                with download_lock:
-                    download_status[download_id]["msg"] = line
+                # Only update the UI with meaningful progress — skip WARNING noise
+                if not line.startswith("WARNING:"):
+                    with download_lock:
+                        download_status[download_id]["msg"] = line
+                # Track the most recent actual ERROR line for failure reporting
+                if line.startswith("ERROR:"):
+                    last_error_line = line
         proc.wait()
         if proc.returncode == 0:
             with download_lock:
                 download_status[download_id] = {"state": "done", "msg": "✅ Download complete!"}
         else:
+            # Use the ERROR line if we captured one, otherwise fall back to last line
+            failure = last_error_line or last_line
             hint = ""
-            if "403" in last_line or "cookie" in last_line.lower():
+            if "403" in failure or "cookie" in failure.lower():
                 hint = " — Make sure you're logged into YouTube in the browser selected in Settings."
+            elif "Requested format is not available" in failure:
+                hint = " — Try a different quality option, or the video may be restricted."
             with download_lock:
                 download_status[download_id] = {
                     "state": "error",
-                    "msg": f"❌ {last_line}{hint}"
+                    "msg": f"❌ {failure}{hint}"
                 }
     except FileNotFoundError:
         with download_lock:

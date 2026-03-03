@@ -22,13 +22,29 @@ irm https://deno.land/install.ps1 | iex
 brew install deno
 ```
 
-### Step 3 — Install yt-dlp
+### Step 3 — Install yt-dlp (with all extras)
 Open a terminal (or Command Prompt on Windows) and run:
 ```
-pip install yt-dlp
+pip install "yt-dlp[default]"
 ```
 
-### Step 4 — Install Firefox and log into YouTube (Windows only)
+> This installs yt-dlp along with its challenge solver scripts, which are needed to unlock video formats on YouTube. Using just `pip install yt-dlp` will work but may cause warnings and missing formats.
+
+### Step 4 — Install ffmpeg (needed for video/audio merging)
+ffmpeg handles combining video and audio into a clean MP4 file.
+
+**Windows** — open Command Prompt and run:
+```
+winget install ffmpeg
+```
+Then close and reopen Command Prompt so it takes effect.
+
+**Mac** — open Terminal and run:
+```
+brew install ffmpeg
+```
+
+### Step 5 — Install Firefox and log into YouTube (Windows only)
 On Windows, Chrome and Edge cannot be used with this app — both use an encryption method that blocks external tools from reading their cookies. Firefox stores cookies differently and works perfectly.
 
 > **Your mom doesn't need to use Firefox day-to-day.** She can keep using Chrome or Edge as her normal browser. Firefox just needs to be installed and logged into YouTube once — the app uses it silently in the background.
@@ -39,7 +55,7 @@ On Windows, Chrome and Edge cannot be used with this app — both use an encrypt
 4. Go to **https://youtube.com** and sign in with your Google account
 5. You can minimize or close Firefox — it doesn't need to stay open
 
-### Step 5 — Run the app for the first time
+### Step 6 — Run the app for the first time
 - **Windows:** double-click `start.bat`
 - **Mac:** run `./start.sh` in Terminal
 
@@ -76,4 +92,10 @@ Make sure Firefox is selected in the Settings tab and that you're logged into Yo
 The logged-in YouTube account must have permission to watch that video.
 
 **App won't start?**
-Make sure Python is installed and pip install yt-dlp was run successfully.
+Make sure Python is installed and `pip install "yt-dlp[default]"` was run successfully.
+
+**Getting warnings about MPEG-TS or malformed timestamps?**
+Install ffmpeg (see Step 4 above). yt-dlp uses it automatically to fix these issues.
+
+**Seeing warnings about Deno JS challenge solver?**
+These are harmless — the app filters them out automatically. As long as the download completes, ignore them. If downloads are failing, make sure you installed with `pip install "yt-dlp[default]"` (not just `pip install yt-dlp`).
