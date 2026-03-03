@@ -19,13 +19,17 @@ APP_DIR = Path(__file__).parent
 CONFIG_FILE = APP_DIR / "config.json"
 DEFAULT_DOWNLOAD_DIR = str(Path.home() / "Downloads" / "YouTube")
 
+def default_browser():
+    """Return the best default browser for the current OS, derived from BROWSERS_BY_OS."""
+    return BROWSERS_BY_OS.get(detect_os(), ["firefox"])[0]
+
 def load_config():
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE) as f:
             return json.load(f)
     return {
         "download_dir": DEFAULT_DOWNLOAD_DIR,
-        "browser": "chrome",   # chrome | firefox | safari | edge | none
+        "browser": default_browser(),
         "format": "best"
     }
 
@@ -39,10 +43,12 @@ def detect_os():
     if s == "Windows": return "windows"
     return "linux"
 
-# Browsers available per OS
+# Chrome is excluded from Windows — since Chrome 127 (mid-2024), Chrome uses
+# app-bound cookie encryption on Windows that yt-dlp cannot decrypt.
+# Firefox stores cookies in plain SQLite and works reliably on all platforms.
 BROWSERS_BY_OS = {
-    "mac":     ["chrome", "firefox", "safari", "edge"],
-    "windows": ["chrome", "firefox", "edge"],
+    "mac":     ["safari", "firefox", "chrome", "edge"],
+    "windows": ["firefox"],  # Chrome and Edge excluded — both use app-bound cookie encryption on Windows
     "linux":   ["chrome", "firefox"],
 }
 
@@ -66,18 +72,21 @@ def run_download(url, cfg, download_id):
     elif fmt == "720p":
         cmd += ["-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best"]
     # For "best": no -f flag at all, yt-dlp decides automatically
-    cmd += ["--merge-output-format", "mp4"]
+    if fmt != "audio":
+        cmd += ["--merge-output-format", "mp4"]
 
-    # TODO: From debugging.  Claude needs to verify if this is the correct way.
+    # Fetch the JavaScript challenge solver from GitHub (needed for YouTube's n-challenge).
+    # This allows yt-dlp to unlock video formats that would otherwise be blocked.
     cmd += ["--remote-components", "ejs:github"]
 
-
-    # Cookies — pulled automatically from the chosen browser, no extension needed
-    browser = cfg.get("browser", "chrome")
+    # Cookies — pulled automatically from the chosen browser, no extension needed.
+    # NOTE: On Windows, use Firefox. Chrome cookies are encrypted since Chrome 127
+    # and cannot be decrypted by yt-dlp on Windows.
+    browser = cfg.get("browser") or default_browser()
     if browser and browser != "none":
         cmd += ["--cookies-from-browser", browser]
 
-    # Output
+    # Output template: "Channel Name - Video Title.mp4"
     cmd += [
         "-o", os.path.join(out_dir, "%(uploader)s - %(title)s.%(ext)s"),
         "--no-playlist",
@@ -223,6 +232,9 @@ HTML = r"""<!DOCTYPE html>
         The app reads your login automatically — no extensions or file exports needed.
         Just make sure you're logged into YouTube in whichever browser you pick.
       </p>
+      <div id="windows-chrome-warning" style="display:none" class="notice notice-warn">
+        ⚠️ <strong>Chrome and Edge cannot be used on Windows</strong> — both use an encryption method that blocks external tools from reading cookies. Use <strong>Firefox</strong> instead (free to install at firefox.com).
+      </div>
       <div class="browser-grid" id="browser-grid"></div>
 
       <div class="spacer">
@@ -240,7 +252,8 @@ HTML = r"""<!DOCTYPE html>
     <div class="card">
       <h2>Troubleshooting</h2>
       <p style="font-size:.9rem;line-height:1.8;color:#444">
-        <strong>Getting a 403 error?</strong> Make sure the browser selected above is the one you're logged into YouTube with.<br>
+        <strong>Getting a 403 or login error?</strong> Make sure the browser selected above is the one you're logged into YouTube with.<br>
+        <strong>On Windows, use Firefox</strong> — Chrome's cookies are encrypted and can't be read by this app.<br>
         <strong>Video says "private" or "unavailable"?</strong> Your account must have access to that video.<br>
         <strong>yt-dlp not found?</strong> Open a terminal and run: <code>pip install yt-dlp</code>
       </p>
@@ -260,14 +273,19 @@ const BROWSER_INFO = {
 let cfg = {};
 let pollInterval = null;
 let jobs = {};
+let currentOS = '';
 
 async function init() {
   const r = await fetch('/api/config');
   const data = await r.json();
   cfg = data.config;
+  currentOS = data.os;
   const browsers = [...data.browsers, 'none'];
 
-  // Build browser grid
+  if (currentOS === 'windows') {
+    document.getElementById('windows-chrome-warning').style.display = 'block';
+  }
+
   const grid = document.getElementById('browser-grid');
   grid.innerHTML = browsers.map(b => {
     const info = BROWSER_INFO[b] || {icon:'🌐', label:b};

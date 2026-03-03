@@ -2,55 +2,78 @@
 
 A simple desktop app for downloading YouTube videos. Runs in your browser.
 
-## Quick Start (for the person setting it up)
+---
 
-### 1. Install Python 3
-- Download from https://python.org
-- Windows: check "Add Python to PATH" during install
+## One-time Setup (done by the person setting it up)
 
-TODO: Get Claude to format these
+### Step 1 — Install Python 3
+- Download from **https://python.org**
+- **Windows:** during install, check the box that says **"Add Python to PATH"**
 
-Install Deno on Windows
+### Step 2 — Install Deno (needed for YouTube video unlocking)
 
-Using PowerShell (Windows):
-
+**Windows** — open PowerShell and run:
+```
 irm https://deno.land/install.ps1 | iex
+```
 
-Install Deno on macOS
-
-Using Homebrew:
-
+**Mac** — open Terminal and run:
+```
 brew install deno
+```
 
-### 2. Install yt-dlp
-Open a terminal/Command Prompt and run:
+### Step 3 — Install yt-dlp
+Open a terminal (or Command Prompt on Windows) and run:
 ```
 pip install yt-dlp
 ```
 
-### 3. Run the app
-- **Windows**: Double-click `start.bat`
-- **Mac/Linux**: Run `./start.sh` in terminal (may need `chmod +x start.sh` first)
+### Step 4 — Install Firefox and log into YouTube (Windows only)
+On Windows, Chrome and Edge cannot be used with this app — both use an encryption method that blocks external tools from reading their cookies. Firefox stores cookies differently and works perfectly.
 
-A browser window opens automatically. That's the app!
+> **Your mom doesn't need to use Firefox day-to-day.** She can keep using Chrome or Edge as her normal browser. Firefox just needs to be installed and logged into YouTube once — the app uses it silently in the background.
 
-## For your mom (daily use)
-1. Double-click `start.bat` (or `start.sh`)
-2. Paste YouTube links into the box (one per line)
+1. Go to **https://firefox.com** and click **Download Firefox**
+2. Run the installer (just click through, no special options needed)
+3. Open Firefox
+4. Go to **https://youtube.com** and sign in with your Google account
+5. You can minimize or close Firefox — it doesn't need to stay open
+
+### Step 5 — Run the app for the first time
+- **Windows:** double-click `start.bat`
+- **Mac:** run `./start.sh` in Terminal
+
+A browser window opens automatically. Go to the **Settings** tab and confirm Firefox is selected.
+
+---
+
+## Daily Use (for your mom)
+
+1. Double-click **`start.bat`** (Windows) or **`start.sh`** (Mac)
+2. Paste one or more YouTube links into the box (one per line)
 3. Click **Download**
-4. Videos appear in `~/Downloads/YouTube/`
+4. Videos are saved to: `Downloads → YouTube`
 
-## Age-restricted / Private Videos
-To download videos that require being logged in:
+That's it — no other steps needed.
 
-1. Install the **"Get cookies.txt LOCALLY"** extension in Chrome or Firefox
-2. Log into YouTube
-3. Click the extension icon on youtube.com → export cookies
-4. Save the file (e.g. `C:\Users\YourName\youtube-cookies.txt`)
-5. Open the **Settings** tab in the app and enter that file path
+---
 
-## Changing the download folder
-Go to the **Settings** tab and update the Download Folder path.
+## Video Name Format
 
-## File naming
-Files are saved as: `ChannelName - Video Title.mp4`
+Downloaded videos are saved as:
+```
+Channel Name - Video Title.mp4
+```
+
+---
+
+## Troubleshooting
+
+**Getting a login or 403 error?**
+Make sure Firefox is selected in the Settings tab and that you're logged into YouTube in Firefox.
+
+**Video says "private" or "unavailable"?**
+The logged-in YouTube account must have permission to watch that video.
+
+**App won't start?**
+Make sure Python is installed and pip install yt-dlp was run successfully.
