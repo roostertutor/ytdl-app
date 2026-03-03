@@ -91,6 +91,7 @@ def run_download(url, cfg, download_id):
         "-o", os.path.join(out_dir, "%(uploader)s - %(title)s.%(ext)s"),
         "--no-playlist",
         "--progress",
+        "--print", "YTDL_TITLE:%(title)s",  # emits a parseable title line before download starts
         url
     ]
 
@@ -108,28 +109,13 @@ def run_download(url, cfg, download_id):
             if line:
                 last_line = line
                 all_lines.append(line)
-                # Extract video title from yt-dlp output e.g. "[download] Destination: ..."
-                if line.startswith("[download] Destination:"):
-                    # Grab just the filename without path
-                    try:
-                        fname = line.split("Destination:")[-1].strip()
-                        fname = os.path.basename(fname)
-                        # Strip extension
-                        video_title = os.path.splitext(fname)[0]
-                        with download_lock:
-                            download_status[download_id]["title"] = video_title
-                    except Exception:
-                        pass
-                # Extract title from [youtube] line e.g. "[youtube] Title: ..."
-                if "] Title:" in line:
-                    try:
-                        video_title = line.split("] Title:")[-1].strip()
-                        with download_lock:
-                            download_status[download_id]["title"] = video_title
-                    except Exception:
-                        pass
-                # Only update progress in UI — skip WARNING noise
-                if not line.startswith("WARNING:"):
+                # Extract title from the --print output line we requested
+                if line.startswith("YTDL_TITLE:"):
+                    video_title = line[len("YTDL_TITLE:"):].strip()
+                    with download_lock:
+                        download_status[download_id]["title"] = video_title
+                # Only update progress in UI — skip WARNING noise and our own YTDL_TITLE marker
+                if not line.startswith("WARNING:") and not line.startswith("YTDL_TITLE:"):
                     with download_lock:
                         download_status[download_id]["msg"] = line
                 # Track the most recent actual ERROR line for failure reporting
