@@ -101,11 +101,34 @@ def run_download(url, cfg, download_id):
         )
         last_line = "Running..."
         last_error_line = ""  # track ERROR lines separately, ignoring WARNING lines
+        all_lines = []        # full log for debug trace
+        video_title = ""      # extracted from yt-dlp output when available
         for line in proc.stdout:
             line = line.strip()
             if line:
                 last_line = line
-                # Only update the UI with meaningful progress — skip WARNING noise
+                all_lines.append(line)
+                # Extract video title from yt-dlp output e.g. "[download] Destination: ..."
+                if line.startswith("[download] Destination:"):
+                    # Grab just the filename without path
+                    try:
+                        fname = line.split("Destination:")[-1].strip()
+                        fname = os.path.basename(fname)
+                        # Strip extension
+                        video_title = os.path.splitext(fname)[0]
+                        with download_lock:
+                            download_status[download_id]["title"] = video_title
+                    except Exception:
+                        pass
+                # Extract title from [youtube] line e.g. "[youtube] Title: ..."
+                if "] Title:" in line:
+                    try:
+                        video_title = line.split("] Title:")[-1].strip()
+                        with download_lock:
+                            download_status[download_id]["title"] = video_title
+                    except Exception:
+                        pass
+                # Only update progress in UI — skip WARNING noise
                 if not line.startswith("WARNING:"):
                     with download_lock:
                         download_status[download_id]["msg"] = line
@@ -115,7 +138,11 @@ def run_download(url, cfg, download_id):
         proc.wait()
         if proc.returncode == 0:
             with download_lock:
-                download_status[download_id] = {"state": "done", "msg": "✅ Download complete!"}
+                download_status[download_id] = {
+                    "state": "done",
+                    "msg": "✅ Download complete!",
+                    "title": video_title,
+                }
         else:
             # Use the ERROR line if we captured one, otherwise fall back to last line
             failure = last_error_line or last_line
@@ -124,10 +151,14 @@ def run_download(url, cfg, download_id):
                 hint = " — Make sure you're logged into YouTube in the browser selected in Settings."
             elif "Requested format is not available" in failure:
                 hint = " — Try a different quality option, or the video may be restricted."
+            # Collect warnings and errors for the debug trace
+            debug_lines = [l for l in all_lines if l.startswith("WARNING:") or l.startswith("ERROR:")]
             with download_lock:
                 download_status[download_id] = {
                     "state": "error",
-                    "msg": f"❌ {failure}{hint}"
+                    "msg": f"❌ {failure}{hint}",
+                    "title": video_title,
+                    "trace": "\n".join(debug_lines[-10:]),  # last 10 warnings/errors
                 }
     except FileNotFoundError:
         with download_lock:
@@ -199,6 +230,11 @@ HTML = r"""<!DOCTYPE html>
   .hint{font-size:.82rem;color:var(--muted);margin-top:6px;line-height:1.5}
   .spacer{margin-top:20px}
   code{background:#f0ede8;padding:2px 6px;border-radius:4px;font-size:.85rem}
+  .video-title{font-weight:600;font-size:.88rem;color:#1a1a2e;margin-bottom:4px;word-break:break-word}
+  .trace-details{margin-top:8px}
+  .trace-details summary{font-size:.78rem;color:#888;cursor:pointer;font-weight:600}
+  .trace-details summary:hover{color:#cc2200}
+  .trace-pre{margin-top:6px;background:#1a1a2e;color:#f0c090;font-size:.72rem;padding:10px 12px;border-radius:6px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;line-height:1.5}
 </style>
 </head>
 <body>
@@ -358,23 +394,29 @@ async function startDownload() {
   });
   const data = await r.json();
   data.ids.forEach((id,i) => {
-    jobs[id] = {url:urls[i], state:'pending'};
-    renderItem(id, urls[i], 'pending', 'Waiting...');
+    jobs[id] = {url:urls[i], state:'pending', title:''};
+    renderItem(id, urls[i], '', 'pending', 'Waiting...');
   });
   document.getElementById('urls').value = '';
   startPolling();
 }
 
-function renderItem(id, url, state, msg) {
+function renderItem(id, url, title, state, msg, trace) {
   const queue = document.getElementById('queue');
   let el = document.getElementById('job-'+id);
   if (!el) { el = document.createElement('div'); el.id='job-'+id; queue.prepend(el); }
   el.className = 'queue-item state-'+state;
   const labels = {pending:'Waiting', downloading:'Downloading', done:'Done', error:'Error'};
+  const titleHtml = title ? `<div class="video-title">${title}</div>` : '';
+  const traceHtml = (trace && state === 'error')
+    ? `<details class="trace-details"><summary>Show debug info</summary><pre class="trace-pre">${trace}</pre></details>`
+    : '';
   el.innerHTML = `
     <div class="url-text">${url}</div>
+    ${titleHtml}
     <span class="badge badge-${state}">${labels[state]||state}</span>
-    <div class="status-msg">${msg}</div>`;
+    <div class="status-msg">${msg}</div>
+    ${traceHtml}`;
 }
 
 function startPolling() {
@@ -386,7 +428,8 @@ function startPolling() {
     const data = await r.json();
     for (const [id,info] of Object.entries(data)) {
       jobs[id].state = info.state;
-      renderItem(id, jobs[id].url, info.state, info.msg);
+      if (info.title) jobs[id].title = info.title;
+      renderItem(id, jobs[id].url, jobs[id].title||'', info.state, info.msg, info.trace||'');
     }
   }, 1200);
 }

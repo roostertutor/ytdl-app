@@ -99,3 +99,49 @@ Install ffmpeg (see Step 4 above). yt-dlp uses it automatically to fix these iss
 
 **Seeing warnings about Deno JS challenge solver?**
 These are harmless — the app filters them out automatically. As long as the download completes, ignore them. If downloads are failing, make sure you installed with `pip install "yt-dlp[default]"` (not just `pip install yt-dlp`).
+
+---
+
+## Debugging (for the person setting it up)
+
+If a video fails to download, these commands help diagnose what's happening. Run them in a terminal (Command Prompt on Windows, Terminal on Mac).
+
+### Check what formats are available for a video
+
+**Windows (Firefox):**
+```
+yt-dlp --cookies-from-browser firefox --list-formats "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+**Mac (Chrome):**
+```
+yt-dlp --cookies-from-browser chrome --list-formats "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+If this returns only `mhtml` storyboard entries and no video formats, the JS challenge solver is not working — make sure yt-dlp was installed with extras:
+```
+pip install "yt-dlp[default]" --upgrade
+```
+
+### Test a download directly from the terminal
+
+**Windows:**
+```
+yt-dlp --cookies-from-browser firefox --merge-output-format mp4 "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+**Mac:**
+```
+yt-dlp --cookies-from-browser chrome --merge-output-format mp4 "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+### Check installed versions
+```
+yt-dlp --version
+ffmpeg -version
+deno --version
+python --version
+```
+
+### The app also shows a "Show debug info" link on failed downloads
+Click it in the UI to see the last 10 warnings and errors from yt-dlp without needing a terminal.
