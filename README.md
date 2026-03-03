@@ -8,6 +8,20 @@ A simple desktop app for downloading YouTube videos. Runs in your browser.
 - Download from https://python.org
 - Windows: check "Add Python to PATH" during install
 
+TODO: Get Claude to format these
+
+Install Deno on Windows
+
+Using PowerShell (Windows):
+
+irm https://deno.land/install.ps1 | iex
+
+Install Deno on macOS
+
+Using Homebrew:
+
+brew install deno
+
 ### 2. Install yt-dlp
 Open a terminal/Command Prompt and run:
 ```

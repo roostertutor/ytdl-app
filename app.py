@@ -68,6 +68,10 @@ def run_download(url, cfg, download_id):
     # For "best": no -f flag at all, yt-dlp decides automatically
     cmd += ["--merge-output-format", "mp4"]
 
+    # TODO: From debugging.  Claude needs to verify if this is the correct way.
+    cmd += ["--remote-components", "ejs:github"]
+
+
     # Cookies — pulled automatically from the chosen browser, no extension needed
     browser = cfg.get("browser", "chrome")
     if browser and browser != "none":
