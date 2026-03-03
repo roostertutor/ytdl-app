@@ -139,11 +139,21 @@ def run_download(url, cfg, download_id):
                 hint = " — Try a different quality option, or the video may be restricted."
             # Collect warnings and errors for the debug trace
             debug_lines = [l for l in all_lines if l.startswith("WARNING:") or l.startswith("ERROR:")]
+            # If title wasn't extracted (error happened before yt-dlp printed it),
+            # fall back to the video ID parsed from the URL
+            display_title = video_title
+            if not display_title:
+                try:
+                    import urllib.parse as _up
+                    qs = _up.parse_qs(_up.urlparse(url).query)
+                    display_title = qs.get("v", [""])[0] or url
+                except Exception:
+                    display_title = url
             with download_lock:
                 download_status[download_id] = {
                     "state": "error",
                     "msg": f"❌ {failure}{hint}",
-                    "title": video_title,
+                    "title": display_title,
                     "trace": "\n".join(debug_lines[-10:]),  # last 10 warnings/errors
                 }
     except FileNotFoundError:
