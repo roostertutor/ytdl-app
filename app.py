@@ -92,6 +92,7 @@ def run_download(url, cfg, download_id):
         "--no-playlist",
         "--progress",
         "--print", "YTDL_TITLE:%(title)s",  # emits a parseable title line before download starts
+        "--print", "after_move:YTDL_FILEPATH:%(filepath)s",  # emits final filepath after download
         url
     ]
 
@@ -104,6 +105,7 @@ def run_download(url, cfg, download_id):
         last_error_line = ""  # track ERROR lines separately, ignoring WARNING lines
         all_lines = []        # full log for debug trace
         video_title = ""      # extracted from yt-dlp output when available
+        downloaded_filepath = ""  # final file path after merge/move
         for line in proc.stdout:
             line = line.strip()
             if line:
@@ -114,8 +116,11 @@ def run_download(url, cfg, download_id):
                     video_title = line[len("YTDL_TITLE:"):].strip()
                     with download_lock:
                         download_status[download_id]["title"] = video_title
+                # Extract final filepath after move
+                if line.startswith("YTDL_FILEPATH:"):
+                    downloaded_filepath = line[len("YTDL_FILEPATH:"):].strip()
                 # Only update progress in UI — skip WARNING noise and our own YTDL_TITLE marker
-                if not line.startswith("WARNING:") and not line.startswith("YTDL_TITLE:"):
+                if not line.startswith("WARNING:") and not line.startswith("YTDL_TITLE:") and not line.startswith("YTDL_FILEPATH:"):
                     with download_lock:
                         download_status[download_id]["msg"] = line
                 # Track the most recent actual ERROR line for failure reporting
@@ -123,12 +128,23 @@ def run_download(url, cfg, download_id):
                     last_error_line = line
         proc.wait()
         if proc.returncode == 0:
-            with download_lock:
-                download_status[download_id] = {
-                    "state": "done",
-                    "msg": "✅ Download complete!",
-                    "title": video_title,
-                }
+            # Verify the file actually landed on disk — ffmpeg merge can silently fail
+            if downloaded_filepath and not os.path.exists(downloaded_filepath):
+                debug_lines = [l for l in all_lines if l.startswith("WARNING:") or l.startswith("ERROR:")]
+                with download_lock:
+                    download_status[download_id] = {
+                        "state": "error",
+                        "msg": "❌ Download appeared to succeed but the file was not found on disk. ffmpeg may have failed to merge the video.",
+                        "title": video_title,
+                        "trace": "\n".join(debug_lines[-10:]),
+                    }
+            else:
+                with download_lock:
+                    download_status[download_id] = {
+                        "state": "done",
+                        "msg": "✅ Download complete!",
+                        "title": video_title,
+                    }
         else:
             # Use the ERROR line if we captured one, otherwise fall back to last line
             failure = last_error_line or last_line
